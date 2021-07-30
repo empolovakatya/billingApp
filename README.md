@@ -2,7 +2,7 @@
 
 Using tools: Golang, PostgreSQL, RabbitMQ, Docker 
 
-Microservice can increase a user's balance or decrease, send money to another user, freeze the user's balance and unfreeze. Accept requests in json ([]byte).  
+Microservice can increase a user's balance or decrease, send money to another user, freeze the user's balance and unfreeze. Accepts requests in json ([]byte).  
 
 ## Run the app
 
@@ -22,13 +22,13 @@ Init DB
 
     make migrate
     
-DB start with 4 rows having amount = 0. 
+DB starts with 4 rows having amount = 0. 
 
 Restart app
 
     make run
     
-Microservice take requests to Queue
+Microservice accepts requests to Queue
 
     "rpc_queue"
 
