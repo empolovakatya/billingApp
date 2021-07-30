@@ -22,7 +22,7 @@ Init DB
 
     make migrate
     
-DB starts with 4 rows having amount = 0. 
+DB starts with 4 rows in table `balances` having amount = 0. 
 
 Restart app
 
