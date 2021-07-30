@@ -12,8 +12,8 @@ import (
 
 //Server receive requests and send responses, routing requests to functions
 func Server() {
-	//conn, err := amqp.Dial("amqp://guest:guest@rabbitmq:5672/") // to use on remote host
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/") //to use on localhost
+	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq:5672/") // to use on remote host
+	//conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/") //to use on localhost
 	FailOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
 
