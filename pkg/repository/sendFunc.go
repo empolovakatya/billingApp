@@ -7,6 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+//SendToOther sends money to other person
 func SendToOther(input billing.Worker) ([]byte, error) {
 	db, err := NewPostgresDB()
 	if err != nil {
@@ -38,20 +39,19 @@ func SendToOther(input billing.Worker) ([]byte, error) {
 		balancesTable)
 	row = tx.QueryRow(receiverQuery, receiverBalanceId)
 	err = row.Scan(&receiverBalance.BalanceId, &receiverBalance.Amount)
-	senderFreeBalance, err := getFreeBalance(senderBalanceId)
 	if err != nil || receiverBalance.BalanceId == 0 {
 		tx.Rollback()
 		body := ErrorResponse("Failed on find receiver", err)
 		return body, nil
 	}
-	if senderFreeBalance >= payment && receiverBalance.BalanceId > 0 && senderBalance.BalanceId > 0 {
-		senderBalance.Amount -= payment
-		receiverBalance.Amount += payment
 
-		updateBalanceSenderQuery := fmt.Sprintf("UPDATE %s SET amount = %d WHERE balance_id = %d",
-			balancesTable, senderBalance.Amount, senderBalanceId)
-		updateBalanceReceiverQuery := fmt.Sprintf("UPDATE %s SET amount = %d WHERE balance_id = %d",
-			balancesTable, receiverBalance.Amount, receiverBalanceId)
+	senderFreeBalance, err := getFreeBalance(senderBalanceId)
+	if senderFreeBalance >= payment && receiverBalance.BalanceId > 0 && senderBalance.BalanceId > 0 {
+
+		updateBalanceSenderQuery := fmt.Sprintf("UPDATE %s SET amount = amount - %e WHERE balance_id = %d",
+			balancesTable, payment, senderBalanceId)
+		updateBalanceReceiverQuery := fmt.Sprintf("UPDATE %s SET amount = amount + %e WHERE balance_id = %d",
+			balancesTable, payment, receiverBalanceId)
 		_, err = tx.Exec(updateBalanceSenderQuery)
 		if err != nil {
 			tx.Rollback()
@@ -64,7 +64,13 @@ func SendToOther(input billing.Worker) ([]byte, error) {
 			body := ErrorResponse("Failed on update receiver balance %s", err)
 			return body, nil
 		}
-		response := billing.MoneyTransfered{SenderId: senderBalanceId, SenderBalance: senderBalance.Amount, ReceiverId: receiverBalanceId, ReceiverBalance: receiverBalance.Amount, Msg: "money-transfered"}
+
+		response := billing.MoneyTransfered{
+			SenderId:        senderBalanceId,
+			SenderBalance:   IntToFloat(senderBalance.Amount - payment),
+			ReceiverId:      receiverBalanceId,
+			ReceiverBalance: IntToFloat(receiverBalance.Amount + payment),
+			Msg:             "money-transfered"}
 		data := billing.TransferedResponse{Data: response}
 		body, _ := json.Marshal(data)
 		return body, tx.Commit()

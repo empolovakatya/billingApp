@@ -7,6 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+//FreezeAmount freezes balance and update db
 func FreezeAmount(input billing.Worker) ([]byte, error) {
 	db, err := NewPostgresDB()
 	if err != nil {
@@ -45,7 +46,7 @@ func FreezeAmount(input billing.Worker) ([]byte, error) {
 			body := ErrorResponse("Failed on insert freezed to db %s", err)
 			return body, nil
 		}
-		response := billing.ArgsFreezes{FreezeId: freezeBalance.FreezeId, FreezedAmount: input.FreezedAmount, Msg: "balance-freezed"}
+		response := billing.ArgsFreezes{FreezeId: freezeBalance.FreezeId, FreezedAmount: IntToFloat(input.FreezedAmount), Msg: "balance-freezed"}
 		data := billing.ResponseFreezes{Data: response}
 		body, _ := json.Marshal(data)
 		return body, tx.Commit()

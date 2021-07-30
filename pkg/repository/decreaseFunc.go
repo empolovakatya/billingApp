@@ -14,20 +14,16 @@ func Decrease(input billing.Worker) ([]byte, error) {
 		logrus.Fatalf("failed to initialize db: %s", err.Error())
 	}
 	tx, err := db.Begin()
+	if err != nil {
+		tx.Rollback()
+		body := ErrorResponse("Failed on begin tx %s", err)
+		return body, nil
+	}
 
 	var balance billing.Balance
 	balanceId := input.BalanceId
 	sumToDecrease := input.Amount
 
-	query := fmt.Sprintf("SELECT balance_id, amount FROM %s WHERE balance_id = $1",
-		balancesTable)
-	row := tx.QueryRow(query, balanceId)
-	err = row.Scan(&balance.BalanceId, &balance.Amount)
-	if err != nil {
-		tx.Rollback()
-		body := ErrorResponse("Error on getting balance from db %s", err)
-		return body, nil
-	}
 	freeBalance, err := getFreeBalance(balanceId)
 	if err != nil {
 		tx.Rollback()
@@ -35,9 +31,8 @@ func Decrease(input billing.Worker) ([]byte, error) {
 		return body, nil
 	}
 	if freeBalance >= sumToDecrease {
-		balance.Amount -= sumToDecrease
-		decreaseQuery := fmt.Sprintf("UPDATE %s SET amount = %d WHERE balance_id = %d",
-			balancesTable, balance.Amount, balanceId)
+		decreaseQuery := fmt.Sprintf("UPDATE %s SET amount = amount - %e WHERE balance_id = %d",
+			balancesTable, sumToDecrease, balanceId)
 
 		_, err = tx.Exec(decreaseQuery)
 		if err != nil {
@@ -45,7 +40,16 @@ func Decrease(input billing.Worker) ([]byte, error) {
 			body := ErrorResponse("Failed on decrease balance %s", err)
 			return body, nil
 		}
-		response := billing.Args{BalanceId: balanceId, Amount: balance.Amount, Msg: "balance-changed"}
+		query := fmt.Sprintf("SELECT balance_id, amount FROM %s WHERE balance_id = $1",
+			balancesTable)
+		row := tx.QueryRow(query, balanceId)
+		err = row.Scan(&balance.BalanceId, &balance.Amount)
+		if err != nil {
+			tx.Rollback()
+			body := ErrorResponse("Error on getting balance from db %s", err)
+			return body, nil
+		}
+		response := billing.Args{BalanceId: balanceId, Amount: IntToFloat(balance.Amount), Msg: "balance-changed"}
 		data := billing.Response{Data: response}
 		body, _ := json.Marshal(data)
 		return body, tx.Commit()

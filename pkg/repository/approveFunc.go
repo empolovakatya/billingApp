@@ -7,6 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+//Approve approves freezed balance, send or unfreeze money
 func Approve(input billing.Worker) ([]byte, error) {
 	var freezedBalance billing.Balance
 	var balance billing.Balance
@@ -61,7 +62,7 @@ func Approve(input billing.Worker) ([]byte, error) {
 			body := ErrorResponse("Failed on deleting from db %s", err)
 			return body, nil
 		}
-		response := billing.Args{BalanceId: balance.BalanceId, Amount: balance.Amount, Msg: "balance-unfreezed"}
+		response := billing.Args{BalanceId: balance.BalanceId, Amount: IntToFloat(balance.Amount), Msg: "balance-unfreezed"}
 		data := billing.Response{Data: response}
 		body, _ := json.Marshal(data)
 		return body, tx.Commit()

@@ -10,6 +10,7 @@ const (
 	freezeTable   = "freezes"
 )
 
+//NewPostgresDB open connection with DB
 func NewPostgresDB() (*sqlx.DB, error) {
 	db, err := sqlx.Open("postgres", "host=localhost port=5436 user=postgres dbname=billing_db password=v&487fnd4jbvf8 sslmode=disable")
 

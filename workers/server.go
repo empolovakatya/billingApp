@@ -10,8 +10,10 @@ import (
 	"github.com/streadway/amqp"
 )
 
+//Server receive requests and send responses, routing requests to functions
 func Server() {
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	//conn, err := amqp.Dial("amqp://guest:guest@rabbitmq:5672/") // to use on remote host
+	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/") //to use on localhost
 	FailOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
 
@@ -56,6 +58,8 @@ func Server() {
 			logrus.Printf(" [*] %s", d.Body)
 			data := &billing.Worker{}
 			err := json.Unmarshal(d.Body, data)
+			data.Amount = FloatToInt(data.Amount)
+			data.FreezedAmount = FloatToInt(data.FreezedAmount)
 			if err != nil {
 				response := billing.Errors{ErrMessage: fmt.Sprintf("Error decoding JSON %s", err)}
 				dataResponse := billing.ErrorResponse{Data: response}
@@ -71,15 +75,12 @@ func Server() {
 						Body:          body,
 					})
 				d.Ack(false)
-				//logrus.Print(string(body))
-				//d.Ack(false)
+
 			} else {
 				if data.Method == "decrease" && data.BalanceId > 0 && data.Amount > 0 {
 					msg, err := repository.Decrease(*data)
 					if err != nil {
-						response := billing.Errors{ErrMessage: fmt.Sprintf("Failed on decrease amount %s", err)}
-						dataResponse := billing.ErrorResponse{Data: response}
-						body, _ := json.Marshal(dataResponse)
+						body := repository.ErrorResponse("Failed on decrease %s", err)
 						err = ch.Publish(
 							"",
 							d.ReplyTo,
@@ -104,13 +105,10 @@ func Server() {
 							Body:          msg,
 						})
 					d.Ack(false)
-					//logrus.Print(string(msg))
 				} else if data.Method == "increase" && data.BalanceId > 0 && data.Amount > 0 {
 					msg, err := repository.Increase(*data)
 					if err != nil {
-						response := billing.Errors{ErrMessage: fmt.Sprintf("Failed on decrease amount %s", err)}
-						dataResponse := billing.ErrorResponse{Data: response}
-						body, _ := json.Marshal(dataResponse)
+						body := repository.ErrorResponse("Failed on increase %s", err)
 						err = ch.Publish(
 							"",
 							d.ReplyTo,
@@ -122,7 +120,6 @@ func Server() {
 								Body:          body,
 							})
 						d.Ack(false)
-						//logrus.Print(string(body))
 						return
 					}
 					err = ch.Publish(
@@ -136,14 +133,11 @@ func Server() {
 							Body:          msg,
 						})
 					d.Ack(false)
-					//logrus.Print(string(msg))
-					//d.Ack(false)
+
 				} else if data.Method == "send" && data.BalanceId > 0 && data.Amount > 0 && data.Receiver > 0 {
 					msg, err := repository.SendToOther(*data)
 					if err != nil {
-						response := billing.Errors{ErrMessage: fmt.Sprintf("Failed on send amount %s", err)}
-						dataResponse := billing.ErrorResponse{Data: response}
-						body, _ := json.Marshal(dataResponse)
+						body := repository.ErrorResponse("Failed on send to other %s", err)
 						err = ch.Publish(
 							"",
 							d.ReplyTo,
@@ -155,7 +149,6 @@ func Server() {
 								Body:          body,
 							})
 						d.Ack(false)
-						//logrus.Print(string(body))
 						return
 					}
 					err = ch.Publish(
@@ -169,14 +162,10 @@ func Server() {
 							Body:          msg,
 						})
 					d.Ack(false)
-					//logrus.Print(string(msg))
-					//d.Ack(false)
 				} else if data.Method == "freeze" && data.BalanceId > 0 && data.FreezedAmount > 0 {
 					msg, err := repository.FreezeAmount(*data)
 					if err != nil {
-						response := billing.Errors{ErrMessage: fmt.Sprintf("Failed on freeze amount %s", err)}
-						dataResponse := billing.ErrorResponse{Data: response}
-						body, _ := json.Marshal(dataResponse)
+						body := repository.ErrorResponse("Failed on freeze amount %s", err)
 						err = ch.Publish(
 							"",
 							d.ReplyTo,
@@ -188,7 +177,6 @@ func Server() {
 								Body:          body,
 							})
 						d.Ack(false)
-						//logrus.Print(string(body))
 						return
 					}
 					err = ch.Publish(
@@ -202,14 +190,11 @@ func Server() {
 							Body:          msg,
 						})
 					d.Ack(false)
-					//logrus.Print(string(msg))
-					//d.Ack(false)
+
 				} else if data.Method == "approve" && data.FreezeId > 0 {
 					msg, err := repository.Approve(*data)
 					if err != nil {
-						response := billing.Errors{ErrMessage: fmt.Sprintf("Failed on approve %s", err)}
-						dataResponse := billing.ErrorResponse{Data: response}
-						body, _ := json.Marshal(dataResponse)
+						body := repository.ErrorResponse("Failed on approve %s", err)
 						err = ch.Publish(
 							"",
 							d.ReplyTo,
@@ -221,7 +206,6 @@ func Server() {
 								Body:          body,
 							})
 						d.Ack(false)
-						//logrus.Print(string(body))
 						return
 					}
 					err = ch.Publish(
@@ -235,9 +219,8 @@ func Server() {
 							Body:          msg,
 						})
 					d.Ack(false)
-					//logrus.Print(string(msg))
 				} else {
-					body := repository.ErrorResponse("Invalid Request", nil)
+					body := repository.ErrorResponse("Invalid Request", err)
 					err = ch.Publish(
 						"",
 						d.ReplyTo,
