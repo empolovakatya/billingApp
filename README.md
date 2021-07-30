@@ -14,7 +14,7 @@ Running app
 
     make run
     
-After first run you have to exit. (CTRL+C) To make DB
+After first run you have to exit to make DB (CTRL+C)
 
     make createdb
     
